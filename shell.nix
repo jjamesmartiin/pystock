@@ -12,6 +12,7 @@ let
     python main.py
   '';
 
+  cleanupVenvScript = builtins.readFile ./cleanup_venv.sh;
 in pkgs.mkShell rec {
   name = "impurePythonEnv";
   venvDir = "./.venv";
@@ -45,24 +46,24 @@ in pkgs.mkShell rec {
     # ImportError: libstdc++.so.6: cannot open shared object file: No such file or directory
   ];
 
-
+  preShellHook = ''
+     ${cleanupVenvScript}
+  '';
+  
   # Run this command, only after creating the virtual environment
   postVenvCreation = ''
     unset SOURCE_DATE_EPOCH
-    pip install -r requirements.txt
-
     export LD_LIBRARY_PATH=${stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH # see default.nix
+    
+    # install after cleanup
+    pip install -r requirements.txt
   '';
 
   # Now we can execute any commands within the virtual environment.
-  # This is optional and can be left out to run pip manually.
   postShellHook = ''
     # allow pip to install wheels
     unset SOURCE_DATE_EPOCH
     export LD_LIBRARY_PATH=${stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH # see default.nix
-
-
-    ${startPythonScript}
   '';
 }
 
