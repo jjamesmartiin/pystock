@@ -25,9 +25,35 @@ def plot_stock_data(data, ticker_info, plot_type="line"):
         print(f"No data available for {ticker_info.get('longName', ticker_info.get('symbol', 'Unknown'))}")
         return
 
-
     # Get the company name or use the symbol if name isn't available
     company_name = ticker_info.get("longName", ticker_info.get("symbol", "Unknown"))
+    
+    # Print stock information before the plot
+    if "Volume" in data.columns:
+        avg_volume = data["Volume"].mean()
+        recent_price = data["Close"].iloc[-1]
+        price_change = data["Close"].iloc[-1] - data["Close"].iloc[0]
+        price_change_pct = (price_change / data["Close"].iloc[0]) * 100
+        
+        print(f"\nRecent Price: ${recent_price:.2f}")
+        print(f"Change: ${price_change:.2f} ({price_change_pct:.2f}%)")
+        print(f"Avg Volume: {int(avg_volume):,}")
+        print("\nStock Information:")
+        print(f"Company: {ticker_info.get('longName', ticker_info.get('symbol', 'Unknown'))}")
+        print(f"Sector: {ticker_info.get('sector', 'N/A')}")
+        print(f"Industry: {ticker_info.get('industry', 'N/A')}")
+        
+        if "marketCap" in ticker_info and ticker_info["marketCap"]:
+            market_cap = ticker_info.get('marketCap', 0)
+            if market_cap > 1e9:
+                print(f"Market Cap: ${market_cap / 1e9:.2f}B")
+            else:
+                print(f"Market Cap: ${market_cap / 1e6:.2f}M")
+                
+        if "fiftyTwoWeekHigh" in ticker_info and "fiftyTwoWeekLow" in ticker_info:
+            print(f"52-Week Range: ${ticker_info.get('fiftyTwoWeekLow', 0):.2f} - ${ticker_info.get('fiftyTwoWeekHigh', 0):.2f}")
+        
+        print("\n")  # Add an extra line break before the graph
     
     # Instead of using dates as strings, use numerical indices for x-axis
     # and format dates as labels
@@ -60,17 +86,7 @@ def plot_stock_data(data, ticker_info, plot_type="line"):
     
     # Show the plot
     plt.show()
-    
-    # Instead of figtext, print additional information below the plot
-    if "Volume" in data.columns:
-        avg_volume = data["Volume"].mean()
-        recent_price = data["Close"].iloc[-1]
-        price_change = data["Close"].iloc[-1] - data["Close"].iloc[0]
-        price_change_pct = (price_change / data["Close"].iloc[0]) * 100
-        
-        print(f"\nRecent Price: ${recent_price:.2f}")
-        print(f"Change: ${price_change:.2f} ({price_change_pct:.2f}%)")
-        print(f"Avg Volume: {int(avg_volume):,}")
+
 
 def main_menu():
     """Display main menu and get user input."""
@@ -89,7 +105,7 @@ def main_menu():
         if not ticker:
             continue
         
-        # Time period options
+        # Time period options - Set default to 6 months
         clear_screen()
         print(f"\nSelected ticker: {ticker}")
         print("\nSelect time period:")
@@ -97,11 +113,11 @@ def main_menu():
         print("2. 5 Days")
         print("3. 1 Month")
         print("4. 3 Months")
-        print("5. 6 Months")
+        print("5. 6 Months (default)")
         print("6. 1 Year")
         print("7. 5 Years")
         
-        period_choice = input("\nChoice (1-7): ")
+        period_choice = input("\nChoice (1-7), press Enter for default: ")
         
         period_map = {
             "1": "1d", 
@@ -113,51 +129,49 @@ def main_menu():
             "7": "5y"
         }
         
-        period = period_map.get(period_choice, "1mo")
+        # Default to 6 months (option 5)
+        if period_choice == "":
+            period = "6mo"
+        else:
+            period = period_map.get(period_choice, "6mo")
         
-        # Chart type options
-
+        # Chart type options - Default to line chart
         clear_screen()
         print(f"\nSelected ticker: {ticker} for period: {period}")
         print("\nSelect chart type:")
-        print("1. Line Chart")
+        print("1. Line Chart (default)")
         print("2. Candlestick Chart")
         
-        chart_choice = input("\nChoice (1-2): ")
-        chart_type = "candle" if chart_choice == "2" else "line"
+        chart_choice = input("\nChoice (1-2), press Enter for default: ")
+        # Default to line chart
+        if chart_choice == "" or chart_choice == "1":
+            chart_type = "line"
+        elif chart_choice == "2":
+            chart_type = "candle"
+        else:
+            chart_type = "line"  # Fallback to line chart for invalid inputs
         
         # Fetch and display data
         clear_screen()
         print(f"\nFetching data for {ticker}...")
-        data, info = get_stock_data(ticker, period=period)
-        
-        if data is not None and not data.empty:
-            try:
-                plot_stock_data(data, info, plot_type=chart_type)
-                
-                # Display some additional info
-                print("\nStock Information:")
-                print(f"Company: {info.get('longName', ticker)}")
-                print(f"Sector: {info.get('sector', 'N/A')}")
-                print(f"Industry: {info.get('industry', 'N/A')}")
-                
-                if "marketCap" in info and info["marketCap"]:
-                    market_cap = info.get('marketCap', 0)
-                    if market_cap > 1e9:
-                        print(f"Market Cap: ${market_cap / 1e9:.2f}B")
-                    else:
-                        print(f"Market Cap: ${market_cap / 1e6:.2f}M")
-                        
-                if "fiftyTwoWeekHigh" in info and "fiftyTwoWeekLow" in info:
-                    print(f"52-Week Range: ${info.get('fiftyTwoWeekLow', 0):.2f} - ${info.get('fiftyTwoWeekHigh', 0):.2f}")
-            except Exception as e:
-                print(f"Error plotting data: {str(e)}")
-                print("Basic stock information:")
-                for key in ['longName', 'symbol', 'sector', 'industry']:
-                    if key in info:
-                        print(f"{key}: {info[key]}")
-        else:
-            print(f"Error fetching data for {ticker}. Please check the ticker symbol and try again.")
+        try:
+            data, info = get_stock_data(ticker, period=period)
+            if data is not None and not data.empty:
+                # In the main_menu function, replace the part after plot_stock_data with:
+                try:
+                    print(f"Plotting {chart_type} chart for {ticker}...")
+                    plot_stock_data(data, info, plot_type=chart_type)
+                    # We no longer need to display info here since it's shown before the graph
+                except Exception as e:
+                    print(f"Error plotting data: {str(e)}")
+                    print("Basic stock information:")
+                    for key in ['longName', 'symbol', 'sector', 'industry']:
+                        if key in info:
+                            print(f"{key}: {info[key]}")
+            else:
+                print(f"Error fetching data for {ticker}. Please check the ticker symbol and try again.")
+        except Exception as e:
+            print(f"Error in data processing: {str(e)}")
         
         input("\nPress Enter to continue...")
 
