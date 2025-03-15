@@ -5,6 +5,20 @@ import plotext as plt
 import datetime
 import time
 import os
+import sys
+import termios
+import tty
+
+def get_key():
+    """Get a single keypress from the terminal."""
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
 
 def clear_screen():
     """Clear the terminal screen."""
@@ -18,6 +32,7 @@ def get_stock_data(ticker, period="1mo", interval="1d"):
         return data, stock.info
     except Exception as e:
         return None, {"longName": ticker, "error": str(e)}
+
 
 def plot_stock_data(data, ticker_info, plot_type="line"):
     """Plot stock data in the terminal."""
@@ -86,10 +101,47 @@ def plot_stock_data(data, ticker_info, plot_type="line"):
     
     # Show the plot
     plt.show()
+    
+    # Add instruction for quick search (this will be overridden if 's' is pressed)
+    print("\nPress 's' for new ticker search, Enter to return to menu", end="", flush=True)
 
+def prompt_for_ticker():
+    """Prompt for a ticker with support for cancellation with ESC."""
+    ticker = ""
+    # Clear the instruction line and replace with prompt
+    print("\r" + " " * 60 + "\rNew ticker: ", end="", flush=True)
+    
+    while True:
+        char = get_key()
+        
+        # Handle Escape key (usually represented as '\x1b')
+        if char == '\x1b':
+            # Clear the current line and restore instruction
+            print("\r" + " " * 60 + "\r\nPress 's' for new ticker search, Enter to return to menu", end="", flush=True)
+            return None
+        
+        # Handle Backspace
+        elif char in ('\x7f', '\x08'):
+            if ticker:
+                ticker = ticker[:-1]
+                print("\rNew ticker: " + ticker + " \b", end="", flush=True)
+        
+        # Handle Enter key
+        elif char in ('\r', '\n'):
+            print()  # Move to the next line
+            return ticker.strip().upper()
+        
+        # Handle other printable characters
+        elif char.isprintable():
+            ticker += char
+            print(char, end="", flush=True)
 
 def main_menu():
     """Display main menu and get user input."""
+    # Default settings
+    current_period = "6mo"
+    current_chart_type = "line"
+    
     while True:
         clear_screen()
         print("\n==== Terminal Stock Chart Application ====")
@@ -105,75 +157,99 @@ def main_menu():
         if not ticker:
             continue
         
-        # Time period options - Set default to 6 months
-        clear_screen()
-        print(f"\nSelected ticker: {ticker}")
-        print("\nSelect time period:")
-        print("1. 1 Day")
-        print("2. 5 Days")
-        print("3. 1 Month")
-        print("4. 3 Months")
-        print("5. 6 Months (default)")
-        print("6. 1 Year")
-        print("7. 5 Years")
-        
-        period_choice = input("\nChoice (1-7), press Enter for default: ")
-        
-        period_map = {
-            "1": "1d", 
-            "2": "5d", 
-            "3": "1mo", 
-            "4": "3mo", 
-            "5": "6mo", 
-            "6": "1y", 
-            "7": "5y"
-        }
-        
-        # Default to 6 months (option 5)
-        if period_choice == "":
-            period = "6mo"
-        else:
-            period = period_map.get(period_choice, "6mo")
-        
-        # Chart type options - Default to line chart
-        clear_screen()
-        print(f"\nSelected ticker: {ticker} for period: {period}")
-        print("\nSelect chart type:")
-        print("1. Line Chart (default)")
-        print("2. Candlestick Chart")
-        
-        chart_choice = input("\nChoice (1-2), press Enter for default: ")
-        # Default to line chart
-        if chart_choice == "" or chart_choice == "1":
-            chart_type = "line"
-        elif chart_choice == "2":
-            chart_type = "candle"
-        else:
-            chart_type = "line"  # Fallback to line chart for invalid inputs
-        
-        # Fetch and display data
-        clear_screen()
-        print(f"\nFetching data for {ticker}...")
-        try:
-            data, info = get_stock_data(ticker, period=period)
-            if data is not None and not data.empty:
-                # In the main_menu function, replace the part after plot_stock_data with:
-                try:
-                    print(f"Plotting {chart_type} chart for {ticker}...")
-                    plot_stock_data(data, info, plot_type=chart_type)
-                    # We no longer need to display info here since it's shown before the graph
-                except Exception as e:
-                    print(f"Error plotting data: {str(e)}")
-                    print("Basic stock information:")
-                    for key in ['longName', 'symbol', 'sector', 'industry']:
-                        if key in info:
-                            print(f"{key}: {info[key]}")
+        # Only show period selection if we don't have a saved one
+        if not current_period:
+            # Time period options
+            clear_screen()
+            print(f"\nSelected ticker: {ticker}")
+            print("\nSelect time period:")
+            print("1. 1 Day")
+            print("2. 5 Days")
+            print("3. 1 Month")
+            print("4. 3 Months")
+            print("5. 6 Months (default)")
+            print("6. 1 Year")
+            print("7. 5 Years")
+            
+            period_choice = input("\nChoice (1-7), press Enter for default: ")
+            
+            period_map = {
+                "1": "1d", 
+                "2": "5d", 
+                "3": "1mo", 
+                "4": "3mo", 
+                "5": "6mo", 
+                "6": "1y", 
+                "7": "5y"
+            }
+            
+            # Default to 6 months (option 5)
+            if period_choice == "":
+                current_period = "6mo"
             else:
-                print(f"Error fetching data for {ticker}. Please check the ticker symbol and try again.")
-        except Exception as e:
-            print(f"Error in data processing: {str(e)}")
+                current_period = period_map.get(period_choice, "6mo")
         
-        input("\nPress Enter to continue...")
+        # Only show chart type selection if we don't have a saved one
+        if not current_chart_type:
+            # Chart type options
+            clear_screen()
+            print(f"\nSelected ticker: {ticker} for period: {current_period}")
+            print("\nSelect chart type:")
+            print("1. Line Chart (default)")
+            print("2. Candlestick Chart")
+            
+            chart_choice = input("\nChoice (1-2), press Enter for default: ")
+            # Default to line chart
+            if chart_choice == "" or chart_choice == "1":
+                current_chart_type = "line"
+            elif chart_choice == "2":
+                current_chart_type = "candle"
+            else:
+                current_chart_type = "line"  # Fallback to line chart for invalid inputs
+        
+        # Process for continuous lookups
+        while True:
+            # Fetch and display data
+            clear_screen()
+            print(f"\nFetching data for {ticker}...")
+            print(f"Using period: {current_period}, chart type: {current_chart_type}")
+            
+            try:
+                data, info = get_stock_data(ticker, period=current_period)
+                if data is not None and not data.empty:
+                    try:
+                        print(f"Plotting {current_chart_type} chart for {ticker}...")
+                        plot_stock_data(data, info, plot_type=current_chart_type)
+                    except Exception as e:
+                        print(f"Error plotting data: {str(e)}")
+                        print("Basic stock information:")
+                        for key in ['longName', 'symbol', 'sector', 'industry']:
+                            if key in info:
+                                print(f"{key}: {info[key]}")
+                else:
+                    print(f"Error fetching data for {ticker}. Please check the ticker symbol and try again.")
+                    input("\nPress Enter to continue...")
+                    break
+            except Exception as e:
+                print(f"Error in data processing: {str(e)}")
+                input("\nPress Enter to continue...")
+                break
+            
+            # Get key press
+            key = get_key()
+            
+            # 's' key for new search
+            if key.lower() == 's':
+                new_ticker = prompt_for_ticker()
+                if new_ticker:
+                    ticker = new_ticker
+                    continue  # Stay in the inner loop with the new ticker
+                else:
+                    # User canceled the search, continue showing current ticker
+                    continue
+            else:
+                # Any other key returns to main menu
+                break
 
 if __name__ == "__main__":
     try:
