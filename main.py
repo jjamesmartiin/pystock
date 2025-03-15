@@ -103,13 +103,16 @@ def plot_stock_data(data, ticker_info, plot_type="line"):
     plt.show()
     
     # Add instruction for quick search (this will be overridden if 's' is pressed)
-    print("\nPress 's' for new ticker search, Enter to return to menu", end="", flush=True)
+    print("\nPress 's' for new ticker search, 'c' to change interval, Enter to return to menu", end="", flush=True)
+
+
 
 def prompt_for_ticker():
     """Prompt for a ticker with support for cancellation with ESC."""
     ticker = ""
     # Clear the instruction line and replace with prompt
-    print("\r" + " " * 60 + "\rNew ticker: ", end="", flush=True)
+    print("\r" + " " * 80, end="")  # Clear the current line with 80 spaces
+    print("\rNew ticker: ", end="", flush=True)
     
     while True:
         char = get_key()
@@ -117,14 +120,17 @@ def prompt_for_ticker():
         # Handle Escape key (usually represented as '\x1b')
         if char == '\x1b':
             # Clear the current line and restore instruction
-            print("\r" + " " * 60 + "\r\nPress 's' for new ticker search, Enter to return to menu", end="", flush=True)
+            print("\r" + " " * 80, end="")  # Clear the line completely
+            print("\rPress 's' for new ticker search, 'c' to change interval, Enter to return to menu", end="", flush=True)
             return None
         
         # Handle Backspace
         elif char in ('\x7f', '\x08'):
             if ticker:
                 ticker = ticker[:-1]
-                print("\rNew ticker: " + ticker + " \b", end="", flush=True)
+                # Clear the line and reprint the prompt and current ticker
+                print("\r" + " " * 80, end="")
+                print(f"\rNew ticker: {ticker}", end="", flush=True)
         
         # Handle Enter key
         elif char in ('\r', '\n'):
@@ -136,11 +142,13 @@ def prompt_for_ticker():
             ticker += char
             print(char, end="", flush=True)
 
+
 def main_menu():
     """Display main menu and get user input."""
     # Default settings
     current_period = "6mo"
     current_chart_type = "line"
+    current_interval = "1d"  # Default interval
     
     while True:
         clear_screen()
@@ -212,10 +220,10 @@ def main_menu():
             # Fetch and display data
             clear_screen()
             print(f"\nFetching data for {ticker}...")
-            print(f"Using period: {current_period}, chart type: {current_chart_type}")
+            print(f"Using period: {current_period}, chart type: {current_chart_type}, interval: {current_interval}")
             
             try:
-                data, info = get_stock_data(ticker, period=current_period)
+                data, info = get_stock_data(ticker, period=current_period, interval=current_interval)
                 if data is not None and not data.empty:
                     try:
                         print(f"Plotting {current_chart_type} chart for {ticker}...")
@@ -247,9 +255,99 @@ def main_menu():
                 else:
                     # User canceled the search, continue showing current ticker
                     continue
+            # 'c' key for changing interval
+            elif key.lower() == 'c':
+                new_interval = prompt_for_interval(current_period)
+                if new_interval:
+                    current_interval = new_interval
+                continue  # Stay in the inner loop with the new interval
             else:
                 # Any other key returns to main menu
                 break
+
+def prompt_for_interval(current_period):
+    """Prompt user to select a candlestick interval."""
+    clear_screen()
+    print("\n==== Select Candlestick Interval ====")
+    
+    # Define available intervals based on the period
+    # Note: YFinance has limitations on which intervals can be used with certain periods
+    if current_period in ["1d", "5d"]:
+        print("1. 1 minute")
+        print("2. 2 minutes")
+        print("3. 5 minutes")
+        print("4. 15 minutes")
+        print("5. 30 minutes")
+        print("6. 1 hour (default)")
+        print("7. 1 day")
+        
+        interval_map = {
+            "1": "1m",
+            "2": "2m",
+            "3": "5m",
+            "4": "15m",
+            "5": "30m",
+            "6": "1h",
+            "7": "1d"
+        }
+    elif current_period in ["1mo", "3mo"]:
+        print("1. 30 minutes")
+        print("2. 1 hour")
+        print("3. 1 day (default)")
+        print("4. 5 days")
+        print("5. 1 week")
+        
+        interval_map = {
+            "1": "30m",
+            "2": "1h",
+            "3": "1d",
+            "4": "5d",
+            "5": "1wk"
+        }
+    else:  # Longer periods
+        print("1. 1 day (default)")
+        print("2. 5 days")
+        print("3. 1 week")
+        print("4. 1 month")
+        
+        interval_map = {
+            "1": "1d",
+            "2": "5d",
+            "3": "1wk",
+            "4": "1mo"
+        }
+    
+    print("\nPress ESC to cancel")
+    
+    # Get choice
+    choice = ""
+    while True:
+        char = get_key()
+        
+        # Handle Escape key
+        if char == '\x1b':
+            return None
+        
+        # Handle Backspace
+        elif char in ('\x7f', '\x08'):
+            if choice:
+                choice = choice[:-1]
+                print("\rChoice: " + choice + " \b", end="", flush=True)
+        
+        # Handle Enter key
+        elif char in ('\r', '\n'):
+            print()  # Move to the next line
+            if not choice:  # Default
+                if current_period in ["1d", "5d"]:
+                    return "1h"
+                else:
+                    return "1d"
+            return interval_map.get(choice, "1d")
+        
+        # Handle other printable characters
+        elif char.isprintable():
+            choice += char
+            print(char, end="", flush=True)
 
 if __name__ == "__main__":
     try:
