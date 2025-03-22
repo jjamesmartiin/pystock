@@ -119,6 +119,12 @@ def main_menu():
                 if new_interval:
                     current_interval = new_interval
                 continue  # Stay in the inner loop with the new interval
+            # 't' key for changing time frame
+            elif key.lower() == 't':
+                new_timeframe = tc.prompt_for_timeframe()
+                if new_timeframe:
+                    current_period = new_timeframe
+                continue  # Stay in the inner loop with the new time frame
             else:
                 # Any other key returns to main menu
                 break 

@@ -3,6 +3,7 @@ import sys
 import termios
 import tty
 import plotext as plt
+import pandas as pd
 
 def get_key():
     """Get a single keypress from the terminal."""
@@ -81,6 +82,23 @@ def plot_price_chart(data, company_name, x_indices, date_labels, plot_type="line
             plt.scatter([i], [row["Low"]], color=color, marker=".")
             plt.plot([i, i], [row["Open"], row["Close"]], color=color)
     
+    # Add adaptive SMA to the main chart if enough data is available
+    if len(data) >= 10:  # Require at least 10 data points
+        # Calculate adaptive SMA period
+        sma_period = max(10, min(200, len(data) // 4))
+        sma_column = f'SMA_{sma_period}'
+        
+        # Calculate SMA if not already calculated
+        if sma_column not in data.columns:
+            data[sma_column] = data['Close'].rolling(window=sma_period).mean()
+        
+        # Filter out NaN values from SMA
+        valid_indices = [i for i in x_indices if i >= (sma_period-1) and not pd.isna(data[sma_column].iloc[i])]
+        valid_sma = [data[sma_column].iloc[i] for i in valid_indices]
+        
+        if valid_indices:
+            plt.plot(valid_indices, valid_sma, color="blue", label=f"{sma_period}-Day SMA")
+    
     # Set x-ticks for price chart
     plt.xticks(x_indices, date_labels)
     
@@ -97,7 +115,7 @@ def plot_volume_chart(data, company_name, x_indices, date_labels):
     
     # Get terminal size and set the figure size to match terminal width
     terminal_width, _ = os.get_terminal_size()
-    plt.plotsize(terminal_width - 5, 10)  # Subtract a small margin for safety
+    plt.plotsize(terminal_width - 5, 10)  # Subtract a small margin for sgafety
     
     plt.title(f"{company_name} Volume")
     plt.xlabel("Date")
@@ -112,6 +130,45 @@ def plot_volume_chart(data, company_name, x_indices, date_labels):
             plt.bar([i], [data["Volume"].iloc[i]], color=color)
     
     # Show the volume chart
+    plt.show()
+
+def plot_sma_chart(data, company_name, x_indices, date_labels):
+    """Plot SMA in the terminal as a separate chart, adapting to available data."""
+    if "Close" not in data.columns or len(data) < 10:  # Require at least 10 data points
+        print("Not enough data for SMA (need at least 10 data points)")
+        return
+        
+    # Calculate adaptive SMA period based on available data
+    # Use 1/4 of available data points, with a minimum of 10 and maximum of 200
+    sma_period = max(10, min(200, len(data) // 4))
+    
+    # Calculate SMA with adaptive period
+    sma_column = f'SMA_{sma_period}'
+    if sma_column not in data.columns:
+        data[sma_column] = data['Close'].rolling(window=sma_period).mean()
+    
+    # Clear for SMA chart
+    plt.clf()
+    
+    # Get terminal size and set the figure size to match terminal width
+    terminal_width, _ = os.get_terminal_size()
+    plt.plotsize(terminal_width - 5, 10)  # Subtract a small margin for safety
+    
+    plt.title(f"{company_name} {sma_period}-Day SMA")
+    plt.xlabel("Date")
+    plt.ylabel("Price ($)")
+    plt.xticks(x_indices, date_labels)
+    
+    # Filter out NaN values from SMA
+    valid_indices = [i for i in x_indices if i >= (sma_period-1) and not pd.isna(data[sma_column].iloc[i])]
+    valid_sma = [data[sma_column].iloc[i] for i in valid_indices]
+    
+    if valid_indices:
+        plt.plot(valid_indices, valid_sma, color="blue", label=f"{sma_period}-Day SMA")
+    else:
+        print("No valid SMA data points to plot")
+    
+    # Show the SMA chart
     plt.show()
 
 def plot_stock_data(data, ticker_info, plot_type="line"):
@@ -138,14 +195,29 @@ def plot_stock_data(data, ticker_info, plot_type="line"):
     if "Volume" in data.columns:
         plot_volume_chart(data, company_name, x_indices, date_labels)
     
+    # Plot adaptive SMA chart if enough data is available
+    if len(data) >= 10:  # Require at least 10 data points
+        plot_sma_chart(data, company_name, x_indices, date_labels)
+    else:
+        print(f"Not enough data for SMA. Have {len(data)} points, need at least 10.")
+    
     # Add instruction for quick search (this will be overridden if 's' is pressed)
-    print("\nPress 's' for new ticker search, 'c' to change interval, Enter to return to menu", end="", flush=True)
+    print("\nPress 's' for new ticker search, 'c' to change interval, 't' to change time frame, Enter to return to menu", end="", flush=True)
 
 def prompt_for_ticker():
     """Prompt for a ticker with support for cancellation with ESC."""
     ticker = ""
+    # Store the original instruction for restoration
+    original_instruction = "Press 's' for new ticker search, 'c' to change interval, 't' to change time frame, Enter to return to menu"
+    
+    # Get terminal width to ensure we clear the entire line
+    try:
+        terminal_width, _ = os.get_terminal_size()
+    except:
+        terminal_width = 120  # Fallback if we can't get terminal size
+    
     # Clear the instruction line and replace with prompt
-    print("\r" + " " * 80, end="")  # Clear the current line with 80 spaces
+    print("\r" + " " * terminal_width, end="")  # Clear the current line with spaces
     print("\rNew ticker: ", end="", flush=True)
     
     while True:
@@ -154,8 +226,8 @@ def prompt_for_ticker():
         # Handle Escape key (usually represented as '\x1b')
         if char == '\x1b':
             # Clear the current line and restore instruction
-            print("\r" + " " * 80, end="")  # Clear the line completely
-            print("\rPress 's' for new ticker search, 'c' to change interval, Enter to return to menu", end="", flush=True)
+            print("\r" + " " * terminal_width, end="")  # Clear the line completely
+            print(f"\r{original_instruction}", end="", flush=True)
             return None
         
         # Handle Backspace
@@ -163,7 +235,7 @@ def prompt_for_ticker():
             if ticker:
                 ticker = ticker[:-1]
                 # Clear the line and reprint the prompt and current ticker
-                print("\r" + " " * 80, end="")
+                print("\r" + " " * terminal_width, end="")
                 print(f"\rNew ticker: {ticker}", end="", flush=True)
         
         # Handle Enter key
@@ -253,4 +325,67 @@ def prompt_for_interval(current_period):
                     return "1h"
                 else:
                     return "1d"
-            return interval_map.get(choice, "1d") 
+            return interval_map.get(choice, "1d")
+
+def prompt_for_timeframe():
+    """Prompt user to select a time frame (period)."""
+    clear_screen()
+    print("\n==== Select Time Frame ====")
+    print("1. 1 Day")
+    print("2. 5 Days")
+    print("3. 1 Month")
+    print("4. 3 Months")
+    print("5. 6 Months")
+    print("6. Year to Date (YTD)")
+    print("7. 1 Year")
+    print("8. 2 Years")
+    print("9. 5 Years")
+    print("10. Max")
+    
+    print("\nPress ESC to cancel")
+    
+    timeframe_map = {
+        "1": "1d",
+        "2": "5d",
+        "3": "1mo",
+        "4": "3mo",
+        "5": "6mo",
+        "6": "ytd",
+        "7": "1y",
+        "8": "2y",
+        "9": "5y",
+        "10": "max"
+    }
+    
+    # Get choice
+    choice = ""
+    while True:
+        char = get_key()
+        
+        # Handle Escape key
+        if char == '\x1b':
+            return None
+        
+        # Handle Backspace
+        elif char in ('\x7f', '\x08'):
+            if choice:
+                choice = choice[:-1]
+                print("\rChoice: " + choice + " \b", end="", flush=True)
+        
+        # Handle Enter key
+        elif char in ('\r', '\n'):
+            print()  # Move to the next line
+            if not choice:  # Default
+                return "1mo"  # Default to 1 month
+            
+            # Handle two-digit choices (like "10")
+            if choice in timeframe_map:
+                return timeframe_map[choice]
+            return "1mo"  # Default if invalid choice
+            
+        # Handle other printable characters
+        elif char.isprintable() and (char.isdigit() or char == '0'):
+            # Only allow digits for choice
+            if len(choice) < 2:  # Limit to 2 digits (for "10")
+                choice += char
+                print(char, end="", flush=True) 
