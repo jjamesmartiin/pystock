@@ -61,8 +61,9 @@ def plot_price_chart(data, company_name, x_indices, date_labels, plot_type="line
     # Clear previous plot
     plt.clf()
     
-    # Set the figure size to be terminal-friendly
-    plt.plotsize(70, 20)  # Adjust width and height for terminal
+    # Get terminal size and set the figure size to match terminal width
+    terminal_width, _ = os.get_terminal_size()
+    plt.plotsize(terminal_width - 5, 20)  # Subtract a small margin for safety
     
     # Plot price chart
     plt.title(f"{company_name} Stock Price")
@@ -93,7 +94,10 @@ def plot_volume_chart(data, company_name, x_indices, date_labels):
         
     # Clear for volume chart
     plt.clf()
-    plt.plotsize(70, 10)  # Smaller height for volume chart
+    
+    # Get terminal size and set the figure size to match terminal width
+    terminal_width, _ = os.get_terminal_size()
+    plt.plotsize(terminal_width - 5, 10)  # Subtract a small margin for safety
     
     plt.title(f"{company_name} Volume")
     plt.xlabel("Date")
