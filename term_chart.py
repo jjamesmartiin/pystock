@@ -57,7 +57,7 @@ def display_stock_summary(data, ticker_info):
     
     print("\n")  # Add an extra line break before the graph
 
-def plot_price_chart(data, company_name, x_indices, date_labels, plot_type="line"):
+def plot_price_chart(data, company_name, x_indices, date_labels, plot_type="line", interval="1d", timeframe="1mo"):
     """Plot price data in the terminal as a chart."""
     # Clear previous plot
     plt.clf()
@@ -66,13 +66,13 @@ def plot_price_chart(data, company_name, x_indices, date_labels, plot_type="line
     terminal_width, _ = os.get_terminal_size()
     plt.plotsize(terminal_width - 5, 20)  # Subtract a small margin for safety
     
-    # Plot price chart
-    plt.title(f"{company_name} Stock Price")
+    # Plot price chart with interval and timeframe in the title
+    plt.title(f"{company_name} ({interval} : {timeframe})")
     plt.ylabel("Price ($)")
     
     # Plot based on type
     if plot_type == "line":
-        plt.plot(x_indices, data["Close"].tolist(), color="green", label="Close Price")
+        plt.plot(x_indices, data["Close"].tolist(), color="green", label=f"{interval} : {timeframe}")
     elif plot_type == "candle":
         # Simulate candlestick with plotext
         for i in x_indices:
@@ -159,19 +159,32 @@ def plot_sma_chart(data, company_name, x_indices, date_labels):
     plt.ylabel("Price ($)")
     plt.xticks(x_indices, date_labels)
     
-    # Filter out NaN values from SMA
-    valid_indices = [i for i in x_indices if i >= (sma_period-1) and not pd.isna(data[sma_column].iloc[i])]
-    valid_sma = [data[sma_column].iloc[i] for i in valid_indices]
+    # Create a full list of x-indices to maintain alignment with main chart
+    # Fill with None for points where SMA is not available
+    full_sma_values = [None] * len(x_indices)
+    
+    # Fill in the SMA values where they exist
+    for i in x_indices:
+        if i >= (sma_period-1) and not pd.isna(data[sma_column].iloc[i]):
+            full_sma_values[i] = data[sma_column].iloc[i]
+    
+    # Filter out None values for plotting
+    valid_indices = [i for i in x_indices if full_sma_values[i] is not None]
+    valid_sma = [full_sma_values[i] for i in valid_indices]
     
     if valid_indices:
+        # Plot the SMA line
         plt.plot(valid_indices, valid_sma, color="blue", label=f"{sma_period}-Day SMA")
+        
+        # Set the x-axis limits to match the main chart
+        plt.xlim(min(x_indices), max(x_indices))
     else:
         print("No valid SMA data points to plot")
     
     # Show the SMA chart
     plt.show()
 
-def plot_stock_data(data, ticker_info, plot_type="line"):
+def plot_stock_data(data, ticker_info, plot_type="line", interval="1d", timeframe="1mo"):
     """Plot stock data in the terminal."""
 
     if check_data_availability(data, ticker_info):
@@ -188,18 +201,12 @@ def plot_stock_data(data, ticker_info, plot_type="line"):
     date_labels = [d.strftime("%m/%d") if hasattr(d, 'strftime') else str(d)[:5] for d in dates]
     x_indices = list(range(len(dates)))
     
-    # Plot the price chart
-    plot_price_chart(data, company_name, x_indices, date_labels, plot_type)
+    # Plot the price chart with interval and timeframe
+    plot_price_chart(data, company_name, x_indices, date_labels, plot_type, interval, timeframe)
     
     # Plot volume chart if data is available
     if "Volume" in data.columns:
         plot_volume_chart(data, company_name, x_indices, date_labels)
-    
-    # Plot adaptive SMA chart if enough data is available
-    if len(data) >= 10:  # Require at least 10 data points
-        plot_sma_chart(data, company_name, x_indices, date_labels)
-    else:
-        print(f"Not enough data for SMA. Have {len(data)} points, need at least 10.")
     
     # Add instruction for quick search (this will be overridden if 's' is pressed)
     print("\nPress 's' for new ticker search, 'c' to change interval, 't' to change time frame, Enter to return to menu", end="", flush=True)
