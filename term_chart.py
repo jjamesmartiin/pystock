@@ -258,11 +258,13 @@ def prompt_for_interval(current_period):
     if current_period in ["1d", "5d"]:
         print("1. 1 minute")
         print("2. 2 minutes")
-        print("3. 5 minutes")
+        print("3. 5 minutes (default for 1d)")
         print("4. 15 minutes")
         print("5. 30 minutes")
-        print("6. 1 hour (default)")
-        print("7. 1 day")
+        print("6. 60 minutes")
+        print("7. 90 minutes")
+        print("8. 1 hour")
+        print("9. 1 day")
         
         interval_map = {
             "1": "1m",
@@ -270,40 +272,47 @@ def prompt_for_interval(current_period):
             "3": "5m",
             "4": "15m",
             "5": "30m",
-            "6": "1h",
-            "7": "1d"
+            "6": "60m",
+            "7": "90m",
+            "8": "1h",
+            "9": "1d"
         }
     elif current_period in ["1mo", "3mo"]:
         print("1. 30 minutes")
-        print("2. 1 hour")
-        print("3. 1 day (default)")
-        print("4. 5 days")
-        print("5. 1 week")
+        print("2. 60 minutes")
+        print("3. 90 minutes")
+        print("4. 1 hour")
+        print("5. 1 day (default)")
+        print("6. 5 days")
+        print("7. 1 week")
         
         interval_map = {
             "1": "30m",
-            "2": "1h",
-            "3": "1d",
-            "4": "5d",
-            "5": "1wk"
+            "2": "60m",
+            "3": "90m",
+            "4": "1h",
+            "5": "1d",
+            "6": "5d",
+            "7": "1wk"
         }
     else:  # Longer periods
         print("1. 1 day (default)")
         print("2. 5 days")
         print("3. 1 week")
         print("4. 1 month")
+        print("5. 3 months")
         
         interval_map = {
             "1": "1d",
             "2": "5d",
             "3": "1wk",
-            "4": "1mo"
+            "4": "1mo",
+            "5": "3mo"
         }
     
     print("\nPress ESC to cancel")
     
-    # Get choice
-    choice = ""
+    # Wait for a single keypress
     while True:
         char = get_key()
         
@@ -311,28 +320,27 @@ def prompt_for_interval(current_period):
         if char == '\x1b':
             return None
         
-        # Handle Backspace
-        elif char in ('\x7f', '\x08'):
-            if choice:
-                choice = choice[:-1]
-                print("\rChoice: " + choice + " \b", end="", flush=True)
+        # Handle digit keys (immediate selection)
+        elif char.isdigit() and char in interval_map:
+            print(f"\nSelected: {char}")
+            return interval_map[char]
         
-        # Handle Enter key
+        # Default if any other key is pressed
         elif char in ('\r', '\n'):
-            print()  # Move to the next line
-            if not choice:  # Default
-                if current_period in ["1d", "5d"]:
-                    return "1h"
-                else:
-                    return "1d"
-            return interval_map.get(choice, "1d")
+            # Return default value based on period
+            if current_period == "1d":
+                return "5m"  # Default to 5-minute chart for 1-day period
+            elif current_period == "5d":
+                return "1h"  # Keep 1-hour default for 5-day period
+            else:
+                return "1d"  # Default to 1-day for longer periods
 
 def prompt_for_timeframe():
     """Prompt user to select a time frame (period)."""
     clear_screen()
     print("\n==== Select Time Frame ====")
     print("1. 1 Day")
-    print("2. 5 Days")
+    print("2. 10 Days")
     print("3. 1 Month")
     print("4. 3 Months")
     print("5. 6 Months")
@@ -340,13 +348,13 @@ def prompt_for_timeframe():
     print("7. 1 Year")
     print("8. 2 Years")
     print("9. 5 Years")
-    print("10. Max")
+    print("0. Max")  # Changed to 0 for single-key selection
     
     print("\nPress ESC to cancel")
     
     timeframe_map = {
         "1": "1d",
-        "2": "5d",
+        "2": "10d",
         "3": "1mo",
         "4": "3mo",
         "5": "6mo",
@@ -354,11 +362,10 @@ def prompt_for_timeframe():
         "7": "1y",
         "8": "2y",
         "9": "5y",
-        "10": "max"
+        "0": "max"  # Changed to 0 for single-key selection
     }
     
-    # Get choice
-    choice = ""
+    # Wait for a single keypress
     while True:
         char = get_key()
         
@@ -366,26 +373,11 @@ def prompt_for_timeframe():
         if char == '\x1b':
             return None
         
-        # Handle Backspace
-        elif char in ('\x7f', '\x08'):
-            if choice:
-                choice = choice[:-1]
-                print("\rChoice: " + choice + " \b", end="", flush=True)
+        # Handle digit keys (immediate selection)
+        elif char.isdigit() and char in timeframe_map:
+            print(f"\nSelected: {char}")
+            return timeframe_map[char]
         
-        # Handle Enter key
+        # Default if any other key is pressed
         elif char in ('\r', '\n'):
-            print()  # Move to the next line
-            if not choice:  # Default
-                return "1mo"  # Default to 1 month
-            
-            # Handle two-digit choices (like "10")
-            if choice in timeframe_map:
-                return timeframe_map[choice]
-            return "1mo"  # Default if invalid choice
-            
-        # Handle other printable characters
-        elif char.isprintable() and (char.isdigit() or char == '0'):
-            # Only allow digits for choice
-            if len(choice) < 2:  # Limit to 2 digits (for "10")
-                choice += char
-                print(char, end="", flush=True) 
+            return "1mo"  # Default to 1 month 
