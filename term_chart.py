@@ -19,58 +19,54 @@ def clear_screen():
     """Clear the terminal screen."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def plot_stock_data(data, ticker_info, plot_type="line"):
-    """Plot stock data in the terminal."""
+def check_data_availability(data, ticker_info):
+    """Check if stock data is available and print message if not."""
     if data is None or data.empty:
         print(f"No data available for {ticker_info.get('longName', ticker_info.get('symbol', 'Unknown'))}")
-        return
+        return True
+    return False
 
-    # Get the company name or use the symbol if name isn't available
-    company_name = ticker_info.get("longName", ticker_info.get("symbol", "Unknown"))
-    
-    # Print stock information before the plot
-    if "Volume" in data.columns:
-        avg_volume = data["Volume"].mean()
-        recent_price = data["Close"].iloc[-1]
-        price_change = data["Close"].iloc[-1] - data["Close"].iloc[0]
-        price_change_pct = (price_change / data["Close"].iloc[0]) * 100
+def display_stock_summary(data, ticker_info):
+    """Display a text summary of the stock data."""
+    if "Volume" not in data.columns:
+        return
         
-        print(f"\nRecent Price: ${recent_price:.2f}")
-        print(f"Change: ${price_change:.2f} ({price_change_pct:.2f}%)")
-        print(f"Avg Volume: {int(avg_volume):,}")
-        print("\nStock Information:")
-        print(f"Company: {ticker_info.get('longName', ticker_info.get('symbol', 'Unknown'))}")
-        print(f"Sector: {ticker_info.get('sector', 'N/A')}")
-        print(f"Industry: {ticker_info.get('industry', 'N/A')}")
-        
-        if "marketCap" in ticker_info and ticker_info["marketCap"]:
-            market_cap = ticker_info.get('marketCap', 0)
-            if market_cap > 1e9:
-                print(f"Market Cap: ${market_cap / 1e9:.2f}B")
-            else:
-                print(f"Market Cap: ${market_cap / 1e6:.2f}M")
-                
-        if "fiftyTwoWeekHigh" in ticker_info and "fiftyTwoWeekLow" in ticker_info:
-            print(f"52-Week Range: ${ticker_info.get('fiftyTwoWeekLow', 0):.2f} - ${ticker_info.get('fiftyTwoWeekHigh', 0):.2f}")
-        
-        print("\n")  # Add an extra line break before the graph
+    avg_volume = data["Volume"].mean()
+    recent_price = data["Close"].iloc[-1]
+    price_change = data["Close"].iloc[-1] - data["Close"].iloc[0]
+    price_change_pct = (price_change / data["Close"].iloc[0]) * 100
     
-    # Instead of using dates as strings, use numerical indices for x-axis
-    # and format dates as labels
-    dates = data.index
-    date_labels = [d.strftime("%m/%d") if hasattr(d, 'strftime') else str(d)[:5] for d in dates]
-    x_indices = list(range(len(dates)))
+    print(f"\nRecent Price: ${recent_price:.2f}")
+    print(f"Change: ${price_change:.2f} ({price_change_pct:.2f}%)")
+    print(f"Avg Volume: {int(avg_volume):,}")
+    print("\nStock Information:")
+    print(f"Company: {ticker_info.get('longName', ticker_info.get('symbol', 'Unknown'))}")
+    print(f"Sector: {ticker_info.get('sector', 'N/A')}")
+    print(f"Industry: {ticker_info.get('industry', 'N/A')}")
     
+    if "marketCap" in ticker_info and ticker_info["marketCap"]:
+        market_cap = ticker_info.get('marketCap', 0)
+        if market_cap > 1e9:
+            print(f"Market Cap: ${market_cap / 1e9:.2f}B")
+        else:
+            print(f"Market Cap: ${market_cap / 1e6:.2f}M")
+            
+    if "fiftyTwoWeekHigh" in ticker_info and "fiftyTwoWeekLow" in ticker_info:
+        print(f"52-Week Range: ${ticker_info.get('fiftyTwoWeekLow', 0):.2f} - ${ticker_info.get('fiftyTwoWeekHigh', 0):.2f}")
+    
+    print("\n")  # Add an extra line break before the graph
+
+def plot_price_chart(data, company_name, x_indices, date_labels, plot_type="line"):
+    """Plot price data in the terminal as a chart."""
     # Clear previous plot
     plt.clf()
     
-    # Set plot title and labels
-    plt.title(f"{company_name} Stock Price")
-    plt.xlabel("Date")
-    plt.ylabel("Price ($)")
+    # Set the figure size to be terminal-friendly
+    plt.plotsize(70, 20)  # Adjust width and height for terminal
     
-    # Use numerical x values with date labels
-    plt.xticks(x_indices, date_labels)
+    # Plot price chart
+    plt.title(f"{company_name} Stock Price")
+    plt.ylabel("Price ($)")
     
     # Plot based on type
     if plot_type == "line":
@@ -84,8 +80,59 @@ def plot_stock_data(data, ticker_info, plot_type="line"):
             plt.scatter([i], [row["Low"]], color=color, marker=".")
             plt.plot([i, i], [row["Open"], row["Close"]], color=color)
     
-    # Show the plot
+    # Set x-ticks for price chart
+    plt.xticks(x_indices, date_labels)
+    
+    # Show the price chart
     plt.show()
+
+def plot_volume_chart(data, company_name, x_indices, date_labels):
+    """Plot volume data in the terminal as a separate chart."""
+    if "Volume" not in data.columns:
+        return
+        
+    # Clear for volume chart
+    plt.clf()
+    plt.plotsize(70, 10)  # Smaller height for volume chart
+    
+    plt.title(f"{company_name} Volume")
+    plt.xlabel("Date")
+    plt.ylabel("Volume")
+    plt.xticks(x_indices, date_labels)
+    
+    # Plot volume bars with colors based on price movement
+    for i in x_indices:
+        if i > 0:  # Skip first bar as we need previous close for comparison
+            # Determine color based on price movement
+            color = "green" if data["Close"].iloc[i] >= data["Close"].iloc[i-1] else "red"
+            plt.bar([i], [data["Volume"].iloc[i]], color=color)
+    
+    # Show the volume chart
+    plt.show()
+
+def plot_stock_data(data, ticker_info, plot_type="line"):
+    """Plot stock data in the terminal."""
+
+    if check_data_availability(data, ticker_info):
+        return
+
+    # Get the company name or use the symbol if name isn't available
+    company_name = ticker_info.get("longName", ticker_info.get("symbol", "Unknown"))
+    
+    # Display text summary of stock data
+    display_stock_summary(data, ticker_info)
+    
+    # Prepare date labels and indices for x-axis
+    dates = data.index
+    date_labels = [d.strftime("%m/%d") if hasattr(d, 'strftime') else str(d)[:5] for d in dates]
+    x_indices = list(range(len(dates)))
+    
+    # Plot the price chart
+    plot_price_chart(data, company_name, x_indices, date_labels, plot_type)
+    
+    # Plot volume chart if data is available
+    if "Volume" in data.columns:
+        plot_volume_chart(data, company_name, x_indices, date_labels)
     
     # Add instruction for quick search (this will be overridden if 's' is pressed)
     print("\nPress 's' for new ticker search, 'c' to change interval, Enter to return to menu", end="", flush=True)
@@ -202,9 +249,4 @@ def prompt_for_interval(current_period):
                     return "1h"
                 else:
                     return "1d"
-            return interval_map.get(choice, "1d")
-        
-        # Handle other printable characters
-        elif char.isprintable():
-            choice += char
-            print(char, end="", flush=True) 
+            return interval_map.get(choice, "1d") 
