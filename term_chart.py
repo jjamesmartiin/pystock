@@ -97,7 +97,7 @@ def plot_price_chart(data, company_name, x_indices, date_labels, plot_type="line
         valid_sma = [data[sma_column].iloc[i] for i in valid_indices]
         
         if valid_indices:
-            plt.plot(valid_indices, valid_sma, color="blue", label=f"{sma_period}-Day SMA")
+            plt.plot(valid_indices, valid_sma, color="blue", label=f"{sma_period}-SMA")
     
     # Set x-ticks for price chart
     plt.xticks(x_indices, date_labels)
@@ -154,7 +154,7 @@ def plot_sma_chart(data, company_name, x_indices, date_labels):
     terminal_width, _ = os.get_terminal_size()
     plt.plotsize(terminal_width - 5, 10)  # Subtract a small margin for safety
     
-    plt.title(f"{company_name} {sma_period}-Day SMA")
+    plt.title(f"{company_name} {sma_period}-SMA")
     plt.xlabel("Date")
     plt.ylabel("Price ($)")
     plt.xticks(x_indices, date_labels)
@@ -174,7 +174,7 @@ def plot_sma_chart(data, company_name, x_indices, date_labels):
     
     if valid_indices:
         # Plot the SMA line
-        plt.plot(valid_indices, valid_sma, color="blue", label=f"{sma_period}-Day SMA")
+        plt.plot(valid_indices, valid_sma, color="blue", label=f"{sma_period}-SMA")
         
         # Set the x-axis limits to match the main chart
         plt.xlim(min(x_indices), max(x_indices))
@@ -270,7 +270,7 @@ def prompt_for_interval(current_period):
         print("5. 30 minutes")
         print("6. 60 minutes")
         print("7. 90 minutes")
-        print("8. 1 hour")
+        print("8. 1 hour")  # Added explicitly for clarity
         print("9. 1 day")
         
         interval_map = {
@@ -281,14 +281,14 @@ def prompt_for_interval(current_period):
             "5": "30m",
             "6": "60m",
             "7": "90m",
-            "8": "1h",
+            "8": "1h",  # Added explicitly for clarity
             "9": "1d"
         }
     elif current_period in ["1mo", "3mo"]:
         print("1. 30 minutes")
         print("2. 60 minutes")
         print("3. 90 minutes")
-        print("4. 1 hour")
+        print("4. 1 hour")  # Added explicitly for clarity
         print("5. 1 day (default)")
         print("6. 5 days")
         print("7. 1 week")
@@ -297,24 +297,26 @@ def prompt_for_interval(current_period):
             "1": "30m",
             "2": "60m",
             "3": "90m",
-            "4": "1h",
+            "4": "1h",  # Added explicitly for clarity
             "5": "1d",
             "6": "5d",
             "7": "1wk"
         }
     else:  # Longer periods
-        print("1. 1 day (default)")
-        print("2. 5 days")
-        print("3. 1 week")
-        print("4. 1 month")
-        print("5. 3 months")
+        print("1. 1 hour")
+        print("2. 1 day (default)")
+        print("3. 5 days")
+        print("4. 1 week")
+        print("5. 1 month")
+        print("6. 3 months")
         
         interval_map = {
-            "1": "1d",
-            "2": "5d",
-            "3": "1wk",
-            "4": "1mo",
-            "5": "3mo"
+            "1": "1h",
+            "2": "1d",
+            "3": "5d",
+            "4": "1wk",
+            "5": "1mo",
+            "6": "3mo"
         }
     
     print("\nPress ESC to cancel")
@@ -372,6 +374,11 @@ def prompt_for_timeframe():
         "0": "max"  # Changed to 0 for single-key selection
     }
     
+    # Get the current interval to check if it's a minute chart
+    # This will need to be passed in from the calling function
+    current_interval = getattr(prompt_for_timeframe, 'current_interval', None)
+    is_minute_chart = current_interval in ["1m", "2m", "5m", "15m", "30m"] if current_interval else False
+    
     # Wait for a single keypress
     while True:
         char = get_key()
@@ -385,8 +392,16 @@ def prompt_for_timeframe():
             print(f"\nSelected: {char}")
             selected_timeframe = timeframe_map[char]
             
-            # Don't return a tuple, just return the timeframe
-            # The calling code should handle setting the appropriate interval
+            # Set default intervals for specific timeframes
+            if selected_timeframe == "1d":
+                return (selected_timeframe, "1m")
+            elif selected_timeframe == "10d":
+                return (selected_timeframe, "1h")
+            # For other timeframes, if coming from a minute chart, set to hourly
+            elif is_minute_chart:
+                return (selected_timeframe, "1h")
+            
+            # For other timeframes, just return the timeframe
             return selected_timeframe
         
         # Default if any other key is pressed

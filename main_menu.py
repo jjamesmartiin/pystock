@@ -123,7 +123,11 @@ def main_menu():
             elif key.lower() == 't':
                 new_timeframe = tc.prompt_for_timeframe()
                 if new_timeframe:
-                    current_period = new_timeframe
+                    # Check if new_timeframe is a tuple (timeframe, interval)
+                    if isinstance(new_timeframe, tuple):
+                        current_period, current_interval = new_timeframe
+                    else:
+                        current_period = new_timeframe
                 continue  # Stay in the inner loop with the new time frame
             else:
                 # Any other key returns to main menu
