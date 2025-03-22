@@ -383,7 +383,11 @@ def prompt_for_timeframe():
         # Handle digit keys (immediate selection)
         elif char.isdigit() and char in timeframe_map:
             print(f"\nSelected: {char}")
-            return timeframe_map[char]
+            selected_timeframe = timeframe_map[char]
+            
+            # Don't return a tuple, just return the timeframe
+            # The calling code should handle setting the appropriate interval
+            return selected_timeframe
         
         # Default if any other key is pressed
         elif char in ('\r', '\n'):

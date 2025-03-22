@@ -85,7 +85,7 @@ def main_menu():
                 if data is not None and not data.empty:
                     try:
                         print(f"Plotting {current_chart_type} chart for {ticker}...")
-                        tc.plot_stock_data(data, info, plot_type=current_chart_type)
+                        tc.plot_stock_data(data, info, plot_type=current_chart_type, interval=current_interval, timeframe=current_period)
                     except Exception as e:
                         print(f"Error plotting data: {str(e)}")
                         print("Basic stock information:")
