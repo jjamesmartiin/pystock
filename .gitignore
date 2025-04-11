@@ -1,1 +1,3 @@
 .venv/
+shell.nix
+pyenv.nix
