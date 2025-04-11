@@ -1,4 +1,2 @@
 .venv/
-shell.nix
-pyenv.nix
 *.pyc
